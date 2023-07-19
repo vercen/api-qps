@@ -1,92 +1,53 @@
-# api-qps
+# 令牌桶算法实现用户API访问QPS控制器
 
+本项目是一个基于Spring Boot框架的Web应用程序，用于演示如何使用令牌桶算法实现用户API访问QPS控制。
 
+## 令牌桶算法
 
-## Getting started
+令牌桶算法是一种流量控制算法，它可以限制单位时间内的请求数量。该算法将请求视为令牌，将令牌放入一个桶中，并限制桶的容量，当桶满时，不再接受新的令牌。每个请求在到达时都需要从桶中获取一个令牌，如果桶中没有令牌，则请求被拒绝。
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 实现
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+本项目使用Spring AOP实现令牌桶算法。在controller层的方法上添加`@RateLimiterAnnotation`注解，该注解包含一个`ttl`属性，用于指定令牌桶的时间窗口大小。本项目中时间窗口固定为10秒。
 
-## Add your files
+用户的QPS配置信息存储在`ratelimiter.properties`配置文件中，其中每个用户对应一个JSON字符串，该JSON字符串是一个Map，其中每个键表示一个API，值表示该API在时间窗口内的请求次数。本项目使用Gson反序列化`ratelimiter.properties`配置文件。
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+用户的身份信息存储在请求头中的`X-KSC-ACCOUNT-ID`字段中。
 
+每次请求到达时，判断该请求是否超出限流阈值，如果超出则返回HTTP状态码409和响应体"request too much"，否则放行该请求。
+
+本项目中使用本地缓存实现令牌桶算法，缓存使用ConcurrentHashMap实现。
+
+## 配置
+
+在启动应用程序时，可以通过`config_path`参数指定`ratelimiter.properties`配置文件的路径。例如：
+
+```shell
+java -Dconfig_path=/path/to/ratelimiter.properties -jar api-qps.jar
 ```
-cd existing_repo
-git remote add origin http://120.92.88.48/fuxiaoming/api-qps.git
-git branch -M main
-git push -uf origin main
+
+## 使用
+
+在`controller`层的方法上添加`@RateLimiterAnnotation`注解，例如：
+
+```java
+@RestController
+public class RateLimiterTestController {
+
+    @RateLimiterAnnotation
+    @RequestMapping("/test/instance/query")
+    public String describeInstance() {
+        return "describe instance success";
+    }
+
+    @RateLimiterAnnotation
+    @RequestMapping("/test/instance/create")
+    public String createInstance() {
+        return "create instance success";
+    }
+}
 ```
 
-## Integrate with your tools
+## 参考资料
 
-- [ ] [Set up project integrations](http://120.92.88.48/fuxiaoming/api-qps/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- [令牌桶算法 - 维基百科，自由的百科全书 ↗](https://zh.wikipedia.org/wiki/%E4%BB%A4%E7%89%8C%E6%A1%B6%E7%AE%97%E6%B3%95)
